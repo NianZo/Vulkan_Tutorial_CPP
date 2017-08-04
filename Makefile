@@ -10,7 +10,7 @@ VulkanTest: main.cpp
 .PHONY: test clean
 
 test: VulkanTest
-	LD_LIBRARY_PATH=$(VULKAN_SDK_PATH)/lib VK_LAYER_PATH=$(VULKAN_SDK_PATH)/etc/explicit_layer.d valgrind ./VulkanTest
+	LD_LIBRARY_PATH=$(VULKAN_SDK_PATH)/lib VK_LAYER_PATH=$(VULKAN_SDK_PATH)/etc/explicit_layer.d ./VulkanTest
 
 clean:
 	rm -f VulkanTest
