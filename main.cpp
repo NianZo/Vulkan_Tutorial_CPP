@@ -18,6 +18,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
+#include <stdio.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -109,7 +111,7 @@ struct SwapChainSupportDetails {
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
-const bool enableValidationLayers = false;
+const bool enableValidationLayers = true;
 #endif
 
 static std::vector<char> readFile(const std::string& filename) {
@@ -292,9 +294,9 @@ private:
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
-    createFramebuffers();
     createCommandPool();
     createDepthResources();
+    createFramebuffers();
     createTextureImage();
     createTextureImageView();
     createTextureSampler();
@@ -567,7 +569,7 @@ private:
       throw std::runtime_error("failed to allocate image memory!");
     }
 
-    vkBindImageMemory(device, textureImage, textureImageMemory, 0);
+    vkBindImageMemory(device, image, imageMemory, 0);
   }
 
   void cleanupSwapChain() {
@@ -847,9 +849,11 @@ private:
       renderPassInfo.framebuffer = swapChainFramebuffers[i];
       renderPassInfo.renderArea.offset = {0,0};
       renderPassInfo.renderArea.extent = swapChainExtent;
-      VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-      renderPassInfo.clearValueCount = 1;
-      renderPassInfo.pClearValues = &clearColor;
+      std::array<VkClearValue, 2> clearValues = {};
+      clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+      clearValues[1].depthStencil = {1.0f, 0};
+      renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+      renderPassInfo.pClearValues = clearValues.data();
       vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
       vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -895,15 +899,16 @@ private:
     // Create framebuffers for each swapChainImage
     swapChainFramebuffers.resize(swapChainImageViews.size());
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-      VkImageView attachments[] = {
-	swapChainImageViews[i]
+      std::array<VkImageView, 2> attachments = {
+	swapChainImageViews[i],
+	depthImageView
       };
 
       VkFramebufferCreateInfo framebufferInfo = {};
       framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       framebufferInfo.renderPass = renderPass;
-      framebufferInfo.attachmentCount = 1;
-      framebufferInfo.pAttachments = attachments;
+      framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+      framebufferInfo.pAttachments = attachments.data();
       framebufferInfo.width = swapChainExtent.width;
       framebufferInfo.height = swapChainExtent.height;
       framebufferInfo.layers = 1;
@@ -1135,6 +1140,17 @@ private:
     colorBlending.blendConstants[3] = 0.0f; // optional
 
     // Dynamic state structure can go here (don't have any dynamic state for now)
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f;
+    depthStencil.maxDepthBounds = 1.0f;
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {};
+    depthStencil.back = {};
 
     // Pipeline layout holds global values for the pipeline (I think?)
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -1158,7 +1174,7 @@ private:
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = nullptr; // Optional
     pipelineInfo.layout = pipelineLayout;
